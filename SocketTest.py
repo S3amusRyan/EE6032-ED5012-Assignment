@@ -1,5 +1,3 @@
-# An example script to connect to Google using socket
-# programming in Python
 import socket # for socket
 import sys
 
