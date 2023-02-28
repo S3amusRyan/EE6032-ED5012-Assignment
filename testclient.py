@@ -25,12 +25,16 @@ clientSocket.connect((hostIp, portNumber))
 window = Tk()
 window.title("Connected To: "+ hostIp+ ":"+str(portNumber))
 
+# Make the client box scalable
+window.rowconfigure(0, weight=1)
+window.columnconfigure(0, weight=1)
+
 txtMessages = Text(window, width=50)
-txtMessages.grid(row=0, column=0, padx=10, pady=10)
+txtMessages.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
 txtYourMessage = Entry(window, width=50)
 txtYourMessage.insert(0,"")
-txtYourMessage.grid(row=1, column=0, padx=10, pady=10)
+txtYourMessage.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
 
 def sendMessage(event=None):
     clientMessage = txtYourMessage.get()
@@ -39,7 +43,7 @@ def sendMessage(event=None):
     txtYourMessage.delete(0, END)
 
 btnSendMessage = Button(window, text="Send", width=20, command=sendMessage)
-btnSendMessage.grid(row=2, column=0, padx=10, pady=10)
+btnSendMessage.grid(row=2, column=0, padx=10, pady=10, sticky="e")
 
 txtYourMessage.bind('<Return>', sendMessage)
 
