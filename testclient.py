@@ -34,7 +34,7 @@ txtYourMessage.grid(row=1, column=0, padx=10, pady=10)
 
 def sendMessage(event=None):
     clientMessage = txtYourMessage.get()
-    txtMessages.insert(END, "\n" + "You: "+ clientMessage)
+    txtMessages.insert(END, "\n" + args.user + ": "+ clientMessage)
     clientSocket.send(clientMessage.encode("utf-8"))
     txtYourMessage.delete(0, END)
 
