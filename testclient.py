@@ -23,7 +23,7 @@ portNumber = 7500
 clientSocket.connect((hostIp, portNumber))
 
 window = Tk()
-window.title("Connected To: "+ hostIp+ ":"+str(portNumber))
+window.title("Name: " + args.user + "         Connected To: "+ hostIp+ ":"+str(portNumber))
 
 txtMessages = Text(window, width=50)
 txtMessages.grid(row=0, column=0, padx=10, pady=10)
