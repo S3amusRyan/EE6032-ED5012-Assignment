@@ -17,16 +17,19 @@ txtMessages = Text(window, width=50)
 txtMessages.grid(row=0, column=0, padx=10, pady=10)
 
 txtYourMessage = Entry(window, width=50)
-txtYourMessage.insert(0,"Your message")
+txtYourMessage.insert(0,"")
 txtYourMessage.grid(row=1, column=0, padx=10, pady=10)
 
-def sendMessage():
+def sendMessage(event=None):
     clientMessage = txtYourMessage.get()
     txtMessages.insert(END, "\n" + "You: "+ clientMessage)
     clientSocket.send(clientMessage.encode("utf-8"))
+    txtYourMessage.delete(0, END)
 
 btnSendMessage = Button(window, text="Send", width=20, command=sendMessage)
 btnSendMessage.grid(row=2, column=0, padx=10, pady=10)
+
+txtYourMessage.bind('<Return>', sendMessage)
 
 def recvMessage():
     while True:
