@@ -23,7 +23,7 @@ portNumber = 7500
 clientSocket.connect((hostIp, portNumber))
 
 window = Tk()
-window.title("Name: " + args.user + "         Connected To: "+ hostIp+ ":"+str(portNumber))
+window.title("Name: Client " + args.user + "         Connected To: "+ hostIp+ ":"+str(portNumber))
 
 # Make the client box scalable
 window.rowconfigure(0, weight=1)
@@ -38,7 +38,7 @@ txtYourMessage.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
 
 def sendMessage(event=None):
     clientMessage = txtYourMessage.get()
-    txtMessages.insert(END, "\n" + args.user + ": "+ clientMessage)
+    txtMessages.insert(END, "\n" + "Client " + args.user + ": "+ clientMessage)
     clientSocket.send(clientMessage.encode("utf-8"))
     txtYourMessage.delete(0, END)
 
