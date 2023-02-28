@@ -1,6 +1,18 @@
 from socket import *
 from threading import *
 from tkinter import *
+import argparse
+import sys
+
+# Argument Parser and defining arguments
+parser = argparse.ArgumentParser(
+                    prog = 'EE6032 Client',
+                    description = 'EE6032 Project Server')
+
+# Server address, default is localhost
+parser.add_argument('-u', '--user', choices=['A', 'B', 'C'], required=True, type=str.upper)
+
+args = parser.parse_args()
 
 clientSocket = socket(AF_INET, SOCK_STREAM)
 clientSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
@@ -42,3 +54,7 @@ recvThread.daemon = True
 recvThread.start()
 
 window.mainloop()
+
+if args.user not in ['A', 'B', 'C']:
+    print("Invalid user specified. Exiting...")
+    sys.exit(1)
