@@ -59,6 +59,3 @@ recvThread.start()
 
 window.mainloop()
 
-if args.user not in ['A', 'B', 'C']:
-    print("Invalid user specified. Exiting...")
-    sys.exit(1)
