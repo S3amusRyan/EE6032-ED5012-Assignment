@@ -13,6 +13,10 @@ from Crypto.Util.Padding import pad, unpad
 import random
 import base64
 
+# ---------------------------------------------------------------
+# Function definitons for encryption
+# ---------------------------------------------------------------
+
 # Encrypt using RSA key
 def RSA_encrypt(message, key): 
     cipher = PKCS1_OAEP.new(key)
@@ -51,39 +55,37 @@ def load_privkey(key_path):
 
 def load_cert_file(cert_path):
     cert_file = open(cert_path, "rb").read().decode('utf-8')
-    cert_name, pubkey_b64, keyhash_b64 = cert_file.split('\n')
-    pubkey = base64.b64decode(pubkey_b64)
+    cert_name, pubkey_b64, keyhash_b64 = cert_file.split(',')
+    pubkey = RSA.import_key(base64.b64decode(pubkey_b64))
     keyhash = base64.b64decode(keyhash_b64)
     cert = {"name": cert_name, "pubkey": pubkey, "cert": cert_file}
     return cert
 
+# ---------------------------------------------------------------
+# Function definitons for sockets and handshakes
+# ---------------------------------------------------------------
+
 # Method used to perform handshake with server
-def handshake_init():
-    n = random.randint(0,1023)
-    message = client_cert + RSA_encrypt(n, pubkeys["S"]) + RSA_encrypt(sha256(RSA_encrypt(n, pubkeys["S"])), privkeys[args.user])
-    clientSocket.send(message)
+def authenticate(socket, certificate, random_int, server_pubkey, client_privkey):
 
-# ---------------------------------------------------------------
-# Loading keys into program section
-# ---------------------------------------------------------------
+    message = bytearray()
+    message.extend(base64.b64encode(certificate.encode('utf-8')))
+    message.extend(b',')
+    message.extend(base64.b64encode(RSA_encrypt(str(random_int), server_pubkey)))
+    message.extend(b',')
+    message.extend(base64.b64encode(RSA_encrypt( hash(RSA_encrypt(str(random_int), server_pubkey)), client_privkey )))
 
-# Array for public keys of A, B and C
-# pubkeys = {
-#     "A": load_pubkey("keys/pubkey_A.pem"),
-#     "B": load_pubkey("keys/pubkey_B.pem"),
-#     "C": load_pubkey("keys/pubkey_C.pem"),
-#     "PUBCERT": load_pubkey("keys/pubkey_PUBCERT.pem"),
-#     "S": load_pubkey("keys/pubkey_S.pem")
-# }
+    print("Attempting to authenticate...")
+    print("Sending following authentication message:\n\n")
+    print(message)
+    socket.send(message)
 
-# # Array for private keys of A, B and C
-# privkeys = {
-#     "A": load_privkey("keys/privkey_A.pem"),
-#     "B": load_privkey("keys/privkey_B.pem"),
-#     "C": load_privkey("keys/privkey_C.pem"),
-#     "PUBCERT": load_privkey("keys/privkey_PUBCERT.pem"),
-#     "S": load_privkey("keys/privkey_S.pem")
-# }
+    reply = socket.recv(1024)
+
+    # if (reply == ""):
+    #     print("Failed to authenticate. Exiting.")
+    #     exit()
+
 
 # ---------------------------------------------------------------
 # Script input arguments section
@@ -118,9 +120,9 @@ server_pubkey = server_cert["pubkey"]
 # Socket connections section
 # ---------------------------------------------------------------
 
-clientSocket = socket(AF_INET, SOCK_STREAM)
-clientSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-clientSocket.connect((args.address, args.port))
+client_socket = socket(AF_INET, SOCK_STREAM)
+client_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+client_socket.connect((args.address, args.port))
 
 # ---------------------------------------------------------------
 # Tk GUI Section
@@ -145,7 +147,7 @@ txtYourMessage.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
 def sendMessage(event=None):                                                    
     clientMessage = txtYourMessage.get()                                        #pull message in chat box
     txtMessages.insert(END, "\n" + "Client " + args.user + ": "+ clientMessage) 
-    clientSocket.send(clientMessage)
+    client_socket.send(clientMessage)
     txtYourMessage.delete(0, END)                                               #clear message box
 
 btnSendMessage = Button(window, text="Send", width=20, command=sendMessage)     #Creating send button
@@ -153,11 +155,11 @@ btnSendMessage.grid(row=2, column=0, padx=10, pady=10, sticky="e")
 
 txtYourMessage.bind('<Return>', sendMessage)                                    #Send message if return key is pressed
     
-handshake_init()
+authenticate(client_socket, client_cert["cert"], random.randint(1, 1023), server_pubkey, client_privkey)
 
 def recvMessage():                                                              #When mesage is received 
     while True:
-        serverMessage = clientSocket.recv(1024).decode("utf-8")
+        serverMessage = client_socket.recv(1024).decode("utf-8")
         print(serverMessage)                                                    #Print message in console
         txtMessages.insert(END, "\n"+serverMessage)                             #
 

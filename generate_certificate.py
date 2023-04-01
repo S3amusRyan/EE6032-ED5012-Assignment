@@ -29,9 +29,9 @@ cert_privkey = RSA.import_key(open(args.certprivkey, 'r').read())
 
 # Generate certificate
 client_cert = bytearray()
-client_cert.extend((args.user + "\n").encode())
+client_cert.extend((args.user + ",").encode())
 client_cert.extend(base64.b64encode(pubkey.export_key('PEM')))
-client_cert.extend(b"\n")
+client_cert.extend(b",")
 client_cert.extend(base64.b64encode(RSA_encrypt(SHA256.new(data=client_cert).hexdigest(), cert_privkey)))
 
 # Write the cert out to file
