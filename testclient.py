@@ -3,53 +3,57 @@ from threading import *
 from tkinter import *
 import argparse
 import sys
-import hashlib 
-import rsa 
 import os 
 import sys 
 import json 
-from Crypto.Cipher import AES as aes
+import Crypto
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import AES, PKCS1_OAEP
+from Crypto.Hash import SHA256 as sha256
 from Crypto.Util.Padding import pad, unpad
 import random
+import base64
 
 # Encrypt using RSA key
-def rsa_encrypt(message, pubkey): 
-    return rsa.encrypt(message.encode(), pubkey)
+def RSA_encrypt(message, key): 
+    cipher = PKCS1_OAEP.new(key)
+    return cipher.encrypt(message.encode('utf-8'))
 
 # Decrypt using RSA key
-def rsa_decrypt(ciphertext, privkey): 
-    return rsa.decrypt(ciphertext, privkey).decode() 
+def RSA_decrypt(message, key): 
+    cipher = RSA.new(key)
+    return cipher.decrypt(message).decode('utf-8')
 
 # Encrypt using AES key
-def aes_encrypt(message, key): 
-    padded_message = pad(message.encode(), AES.block_size) 
+def AES_encrypt(message, key): 
+    padded_message = pad(message, AES.block_size) 
     cipher = AES.new(key, AES.MODE_ECB) 
     return cipher.encrypt(padded_message) 
 
-# Decrypt text using an aes key
-def aes_decrypt(ciphertext, key): 
+# Decrypt text using an AES key
+def AES_decrypt(message, key): 
     cipher = AES.new(key, AES.MODE_ECB) 
-    padded_message = cipher.decrypt(ciphertext) 
-    return unpad(padded_message, AES.block_size).decode() 
+    padded_message = cipher.decrypt(message) 
+    return unpad(padded_message, AES.block_size)
 
 # Used to ge the hash of a message
-def sha256(message): 
-    return hashlib.sha256(message.encode()).hexdigest() 
+def hash(message): 
+    return sha256.new(data=message).hexdigest()
 
 # Used to load in public RSA PEM key from file
 def load_pubkey(key_path):
-    with open(key_path, 'rb') as p:
-        return rsa.PublicKey.load_pkcs1(p.read())
+    with open(key_path, 'r') as p:
+        return RSA.import_key(p.read())
 
 # Used to load in private RSA PEM key from file
 def load_privkey(key_path):
-    with open(key_path, 'rb') as p:
-        return rsa.PrivateKey.load_pkcs1(p.read())
+    with open(key_path, 'r') as p:
+        return RSA.import_key(p.read())
 
 # Method used to perform handshake with server
 def handshake_send():
     NR = random.randint(0,1023)
-    message = client_cert + rsa_encrypt(NR, pubkeys["S"]) + rsa_encrypt(sha256(rsa_encrypt(NR, pubkeys["S"])), privkeys[args.user])
+    message = client_cert + RSA_encrypt(NR, pubkeys["S"]) + RSA_encrypt(sha256(RSA_encrypt(NR, pubkeys["S"])), privkeys[args.user])
     clientSocket.send(message)
 
 # ---------------------------------------------------------------
@@ -90,16 +94,25 @@ parser.add_argument('-p', '--port', default=7500, type=int)
 
 args = parser.parse_args()
 
-# Get client cert using user ID, In a real life scenario this is not done during runtime
-client_cert = args.user + rsa.PublicKey. pubkeys[args.user].exportKey() + rsa_encrypt(sha256(args.user + pubkeys[args.user]), privkeys["PUBCERT"])
+# ---------------------------------------------------------------
+# Key and cert inital management section
+# ---------------------------------------------------------------
 
+client_pubkey = pubkeys[args.user]
+client_privkey = privkeys[args.user]
 
-pubkey = pubkeys[args.user]
-privkey = privkeys[args.user]
-    
+# Generate client cert using user ID, In a real life scenario this is not done during runtime
+client_cert = bytearray()
+client_cert.extend(args.user.encode('utf-8'))
+client_cert.extend(client_pubkey.export_key('PEM'))
+client_cert.extend(RSA_encrypt(hash(client_cert), privkeys["PUBCERT"]))
+
+# ---------------------------------------------------------------
+# Socket connections section
+# ---------------------------------------------------------------
+
 clientSocket = socket(AF_INET, SOCK_STREAM)
 clientSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-
 clientSocket.connect((args.address, args.port))
 
 # ---------------------------------------------------------------
@@ -151,6 +164,3 @@ window.mainloop()
 # Main method section
 # ---------------------------------------------------------------
 
-if args.user not in ['A', 'B', 'C']:
-    print("Invalid user specified. Exiting...")
-    sys.exit(1)
