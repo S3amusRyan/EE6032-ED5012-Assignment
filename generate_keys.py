@@ -1,13 +1,16 @@
-import rsa 
+from Crypto.PublicKey import RSA as rsa
 
-def generateKeys(name):
-    (publicKey, privateKey) = rsa.newkeys(1024)
-    with open('keys/pubkey_' + name +  '.pem', 'wb') as p:
-        p.write(publicKey.save_pkcs1('PEM'))
-    with open('keys/privkey_' + name + '.pem', 'wb') as p:
-        p.write(privateKey.save_pkcs1('PEM'))
+for instance in {"A", "B", "C", "S", "PUBCERT"}:
 
-keys = {"A", "B", "C", "S", "PUBCERT"}
+    # Generate keypair
+    key = rsa.generate(2048)
 
-for name in keys:
-    generateKeys(name)
+    # Write Private key
+    f = open('keys/privkey_'+instance+'.pem', 'wb')
+    f.write(key.export_key('PEM'))
+    f.close()
+
+    # Write Public key
+    f = open('keys/pubkey_'+instance+'.pem', 'wb')
+    f.write(key.public_key().export_key('PEM'))
+    f.close()

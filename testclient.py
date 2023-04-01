@@ -8,41 +8,75 @@ import rsa
 import os 
 import sys 
 import json 
-from Crypto.Cipher import AES 
+from Crypto.Cipher import AES as aes
 from Crypto.Util.Padding import pad, unpad
 import random
 
-def RSA_Encrypt(message, pubkey): 
+# Encrypt using RSA key
+def rsa_encrypt(message, pubkey): 
     return rsa.encrypt(message.encode(), pubkey)
 
-def RSA_Decrypt(ciphertext, privkey): 
+# Decrypt using RSA key
+def rsa_decrypt(ciphertext, privkey): 
     return rsa.decrypt(ciphertext, privkey).decode() 
 
-def AES_Encrypt(message, key): 
+# Encrypt using AES key
+def aes_encrypt(message, key): 
     padded_message = pad(message.encode(), AES.block_size) 
     cipher = AES.new(key, AES.MODE_ECB) 
     return cipher.encrypt(padded_message) 
 
-def AES_Decrypt(ciphertext, key): 
+# Decrypt text using an aes key
+def aes_decrypt(ciphertext, key): 
     cipher = AES.new(key, AES.MODE_ECB) 
     padded_message = cipher.decrypt(ciphertext) 
     return unpad(padded_message, AES.block_size).decode() 
 
-def SHA256(message): 
+# Used to ge the hash of a message
+def sha256(message): 
     return hashlib.sha256(message.encode()).hexdigest() 
 
+# Used to load in public RSA PEM key from file
+def load_pubkey(key_path):
+    with open(key_path, 'rb') as p:
+        return rsa.PublicKey.load_pkcs1(p.read())
+
+# Used to load in private RSA PEM key from file
+def load_privkey(key_path):
+    with open(key_path, 'rb') as p:
+        return rsa.PrivateKey.load_pkcs1(p.read())
+
+# Method used to perform handshake with server
+def handshake_send():
+    NR = random.randint(0,1023)
+    message = client_cert + rsa_encrypt(NR, pubkeys["S"]) + rsa_encrypt(sha256(rsa_encrypt(NR, pubkeys["S"])), privkeys[args.user])
+    clientSocket.send(message)
+
+# ---------------------------------------------------------------
+# Loading keys into program section
+# ---------------------------------------------------------------
+
 # Array for public keys of A, B and C
-pubkeys = {}
-privkeys = {}
+pubkeys = {
+    "A": load_pubkey("keys/pubkey_A.pem"),
+    "B": load_pubkey("keys/pubkey_B.pem"),
+    "C": load_pubkey("keys/pubkey_C.pem"),
+    "PUBCERT": load_pubkey("keys/pubkey_PUBCERT.pem"),
+    "S": load_pubkey("keys/pubkey_S.pem")
+}
 
-def load_keys(keys_path):
-    for instance in {"A", "B", "C", "S", "PUBCERT"}:
-        with open(keys_path + 'pubkey_' + instance + '.pem', "rb") as p:
-            pubkeys[instance] = rsa.PublicKey.load_pkcs1(p.read())
-        with open(keys_path + 'privkey_' + instance + '.pem', "rb") as p:
-            privkeys[instance] = rsa.PrivateKey.load_pkcs1(p.read())
+# Array for private keys of A, B and C
+privkeys = {
+    "A": load_privkey("keys/privkey_A.pem"),
+    "B": load_privkey("keys/privkey_B.pem"),
+    "C": load_privkey("keys/privkey_C.pem"),
+    "PUBCERT": load_privkey("keys/privkey_PUBCERT.pem"),
+    "S": load_privkey("keys/privkey_S.pem")
+}
 
-load_keys("keys/")
+# ---------------------------------------------------------------
+# Script input arguments section
+# ---------------------------------------------------------------
 
 # Argument Parser and defining arguments
 parser = argparse.ArgumentParser(
@@ -52,12 +86,13 @@ parser = argparse.ArgumentParser(
 # Server address, default is localhost
 parser.add_argument('-u', '--user', choices=['A', 'B', 'C'], required=True, type=str.upper)
 parser.add_argument('-a', '--address', default='127.0.0.1', type=str)
-parser.add_argument('-p', '--port', default=7501, type=int)
+parser.add_argument('-p', '--port', default=7500, type=int)
 
 args = parser.parse_args()
 
 # Get client cert using user ID, In a real life scenario this is not done during runtime
-client_cert = args.user + pubkeys[args.user] + RSA_Encrypt(SHA256(args.user + pubkeys[args.user]), privkeys["PUBCERT"])
+client_cert = args.user + rsa.PublicKey. pubkeys[args.user].exportKey() + rsa_encrypt(sha256(args.user + pubkeys[args.user]), privkeys["PUBCERT"])
+
 
 pubkey = pubkeys[args.user]
 privkey = privkeys[args.user]
@@ -66,6 +101,10 @@ clientSocket = socket(AF_INET, SOCK_STREAM)
 clientSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
 
 clientSocket.connect((args.address, args.port))
+
+# ---------------------------------------------------------------
+# Tk GUI Section
+# ---------------------------------------------------------------
 
 #Initialises the chat window
 window = Tk()   
@@ -108,16 +147,10 @@ recvThread.start()
 
 window.mainloop()
 
+# ---------------------------------------------------------------
+# Main method section
+# ---------------------------------------------------------------
+
 if args.user not in ['A', 'B', 'C']:
     print("Invalid user specified. Exiting...")
     sys.exit(1)
-
-def handshake_send():
-    NR = random.randint(0,1023)
-    message = client_cert + RSA_Encrypt(NR, pubkeys["S"]) + RSA_Encrypt(SHA256(RSA_Encrypt(NR, pubkeys["S"])), privkeys[args.user])
-    clientSocket.send(message)
-    client_setup1 = True
-
-client_authenticated = False
-client_handhsake_intioated = False
-client_ = False
