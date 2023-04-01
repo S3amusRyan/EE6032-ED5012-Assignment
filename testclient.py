@@ -2,14 +2,13 @@ from socket import *
 from threading import *
 from tkinter import *
 import argparse
-import sys
 import os 
 import sys 
 import json 
 import Crypto
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES, PKCS1_OAEP
-from Crypto.Hash import SHA256 as sha256
+from Crypto.Hash import SHA256
 from Crypto.Util.Padding import pad, unpad
 import random
 import base64
@@ -38,7 +37,7 @@ def AES_decrypt(message, key):
 
 # Used to ge the hash of a message
 def hash(message): 
-    return sha256.new(data=message).hexdigest()
+    return SHA256.new(data=message).hexdigest()
 
 # Used to load in public RSA PEM key from file
 def load_pubkey(key_path):
@@ -50,10 +49,18 @@ def load_privkey(key_path):
     with open(key_path, 'r') as p:
         return RSA.import_key(p.read())
 
+def load_cert_file(cert_path):
+    cert_file = open(cert_path, "rb").read().decode('utf-8')
+    cert_name, pubkey_b64, keyhash_b64 = cert_file.split('\n')
+    pubkey = base64.b64decode(pubkey_b64)
+    keyhash = base64.b64decode(keyhash_b64)
+    cert = {"name": cert_name, "pubkey": pubkey, "cert": cert_file}
+    return cert
+
 # Method used to perform handshake with server
-def handshake_send():
-    NR = random.randint(0,1023)
-    message = client_cert + RSA_encrypt(NR, pubkeys["S"]) + RSA_encrypt(sha256(RSA_encrypt(NR, pubkeys["S"])), privkeys[args.user])
+def handshake_init():
+    n = random.randint(0,1023)
+    message = client_cert + RSA_encrypt(n, pubkeys["S"]) + RSA_encrypt(sha256(RSA_encrypt(n, pubkeys["S"])), privkeys[args.user])
     clientSocket.send(message)
 
 # ---------------------------------------------------------------
@@ -61,22 +68,22 @@ def handshake_send():
 # ---------------------------------------------------------------
 
 # Array for public keys of A, B and C
-pubkeys = {
-    "A": load_pubkey("keys/pubkey_A.pem"),
-    "B": load_pubkey("keys/pubkey_B.pem"),
-    "C": load_pubkey("keys/pubkey_C.pem"),
-    "PUBCERT": load_pubkey("keys/pubkey_PUBCERT.pem"),
-    "S": load_pubkey("keys/pubkey_S.pem")
-}
+# pubkeys = {
+#     "A": load_pubkey("keys/pubkey_A.pem"),
+#     "B": load_pubkey("keys/pubkey_B.pem"),
+#     "C": load_pubkey("keys/pubkey_C.pem"),
+#     "PUBCERT": load_pubkey("keys/pubkey_PUBCERT.pem"),
+#     "S": load_pubkey("keys/pubkey_S.pem")
+# }
 
-# Array for private keys of A, B and C
-privkeys = {
-    "A": load_privkey("keys/privkey_A.pem"),
-    "B": load_privkey("keys/privkey_B.pem"),
-    "C": load_privkey("keys/privkey_C.pem"),
-    "PUBCERT": load_privkey("keys/privkey_PUBCERT.pem"),
-    "S": load_privkey("keys/privkey_S.pem")
-}
+# # Array for private keys of A, B and C
+# privkeys = {
+#     "A": load_privkey("keys/privkey_A.pem"),
+#     "B": load_privkey("keys/privkey_B.pem"),
+#     "C": load_privkey("keys/privkey_C.pem"),
+#     "PUBCERT": load_privkey("keys/privkey_PUBCERT.pem"),
+#     "S": load_privkey("keys/privkey_S.pem")
+# }
 
 # ---------------------------------------------------------------
 # Script input arguments section
@@ -98,14 +105,14 @@ args = parser.parse_args()
 # Key and cert inital management section
 # ---------------------------------------------------------------
 
-client_pubkey = pubkeys[args.user]
-client_privkey = privkeys[args.user]
+# Get client cert, public and private keys
+client_cert = load_cert_file("certs/cert_" + args.user)
+client_pubkey = client_cert["pubkey"]
+client_privkey = load_privkey("keys/privkey_" + args.user + ".pem")
 
-# Generate client cert using user ID, In a real life scenario this is not done during runtime
-client_cert = bytearray()
-client_cert.extend(args.user.encode('utf-8'))
-client_cert.extend(client_pubkey.export_key('PEM'))
-client_cert.extend(RSA_encrypt(hash(client_cert), privkeys["PUBCERT"]))
+# Get server cert and public keys
+server_cert = load_cert_file("certs/cert_S")
+server_pubkey = server_cert["pubkey"]
 
 # ---------------------------------------------------------------
 # Socket connections section
@@ -146,13 +153,13 @@ btnSendMessage.grid(row=2, column=0, padx=10, pady=10, sticky="e")
 
 txtYourMessage.bind('<Return>', sendMessage)                                    #Send message if return key is pressed
     
-    
+handshake_init()
+
 def recvMessage():                                                              #When mesage is received 
     while True:
         serverMessage = clientSocket.recv(1024).decode("utf-8")
         print(serverMessage)                                                    #Print message in console
         txtMessages.insert(END, "\n"+serverMessage)                             #
-
 
 recvThread = Thread(target=recvMessage)
 recvThread.daemon = True
