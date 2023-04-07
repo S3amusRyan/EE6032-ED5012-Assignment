@@ -53,6 +53,9 @@ def load_privkey(key_path):
     with open(key_path, 'r') as p:
         return RSA.import_key(p.read())
 
+def client_auth():
+    print("Authenticating...")
+
 # ---------------------------------------------------------------
 # Script input arguments section
 # ---------------------------------------------------------------
@@ -77,7 +80,7 @@ def clientThread(client_socket, client_address):
     while True:
         # if clients_authenticated:
         # Receive message from client
-        message = client_socket.recv(1024)
+        message = client_socket.recv(1024).decode('utf-8')
         # Print message and client address to server console
         print(client_address[0] + ":" + str(client_address[1]) +" says: "+ message)
         for client in clients:
@@ -109,5 +112,5 @@ while True:
     client_socket, client_address = hostSocket.accept()
     clients.add(client_socket)
     print ("Connection established with: ", client_address[0] + ":" + str(client_address[1]))
-    thread = Thread(target=clientThread, args=(client_socket, client_address, ))
+    thread = Thread(target=clientThread, args=(client_socket, client_address))
     thread.start()

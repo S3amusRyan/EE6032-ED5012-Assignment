@@ -66,7 +66,7 @@ def load_cert_file(cert_path):
 # ---------------------------------------------------------------
 
 # Method used to perform handshake with server
-def authenticate(socket, certificate, random_int, server_pubkey, client_privkey):
+def client_auth(socket, certificate, random_int, server_pubkey, client_privkey):
 
     message = bytearray()
     message.extend(base64.b64encode(certificate.encode('utf-8')))
@@ -78,6 +78,7 @@ def authenticate(socket, certificate, random_int, server_pubkey, client_privkey)
     print("Attempting to authenticate...")
     print("Sending following authentication message:\n\n")
     print(message)
+
     socket.send(message)
 
     reply = socket.recv(1024)
@@ -155,7 +156,7 @@ btnSendMessage.grid(row=2, column=0, padx=10, pady=10, sticky="e")
 
 txtYourMessage.bind('<Return>', sendMessage)                                    #Send message if return key is pressed
     
-authenticate(client_socket, client_cert["cert"], random.randint(1, 1023), server_pubkey, client_privkey)
+client_auth(client_socket, client_cert["cert"], random.randint(1, 1023), server_pubkey, client_privkey)
 
 def recvMessage():                                                              #When mesage is received 
     while True:
