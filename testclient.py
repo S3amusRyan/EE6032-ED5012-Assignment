@@ -24,7 +24,7 @@ def RSA_encrypt(message, key):
 
 # Decrypt using RSA key
 def RSA_decrypt(message, key): 
-    cipher = RSA.new(key)
+    cipher = PKCS1_OAEP.new(key)
     return cipher.decrypt(message).decode('utf-8')
 
 # Encrypt using AES key
@@ -54,8 +54,8 @@ def load_privkey(key_path):
         return RSA.import_key(p.read())
 
 def load_cert_file(cert_path):
-    cert_file = open(cert_path, "rb").read().decode('utf-8')
-    cert_name, pubkey_b64, keyhash_b64 = cert_file.split(',')
+    cert_file = open(cert_path, "rb").read()
+    cert_name, pubkey_b64, keyhash_b64 = cert_file.split(b',')
     pubkey = RSA.import_key(base64.b64decode(pubkey_b64))
     keyhash = base64.b64decode(keyhash_b64)
     cert = {"name": cert_name, "pubkey": pubkey, "cert": cert_file}
@@ -65,28 +65,53 @@ def load_cert_file(cert_path):
 # Function definitons for sockets and handshakes
 # ---------------------------------------------------------------
 
+# Used to receive all data from socket; combines all data received until '|' delimiter in base64 encoding
+def receive_data(socket):
+    # Byte array buffer 
+    data_buffer = bytearray()
+    # Always running in thread
+    while b'|' not in data_buffer:
+        # Wait for data to be received from socket connection and add onto buffer
+        try:
+            data = socket.recv(1024)
+            if not data:
+                return 0
+            data_buffer.extend(data)
+        except OSError as e:
+            print(e)
+            return 0
+    if not data_buffer:
+        return 0
+    data_out = data_buffer.split(b'|')[0]
+    return base64.b64decode(data_out)
+
+# Encodes data (in byte array format) to base64 format and delimits using '|' character. Sends to socket
+def send_data(socket, data):
+    # Byte array buffer
+    data_out = bytearray()
+    # Encode data to Base64 and add to buffer
+    data_out.extend(base64.b64encode(data))
+    # Add delimiter character to signify end of stream message
+    data_out.extend(b'|')
+    # Sned data out
+    socket.send(data_out)
+
+
 # Method used to perform handshake with server
 def client_auth(socket, certificate, random_int, server_pubkey, client_privkey):
 
     message = bytearray()
-    message.extend(base64.b64encode(certificate.encode('utf-8')))
+    message.extend(base64.b64encode(certificate))
     message.extend(b',')
     message.extend(base64.b64encode(RSA_encrypt(str(random_int), server_pubkey)))
     message.extend(b',')
     message.extend(base64.b64encode(RSA_encrypt( hash(RSA_encrypt(str(random_int), server_pubkey)), client_privkey )))
+    message.extend(b'|')
 
     print("Attempting to authenticate...")
-    print("Sending following authentication message:\n\n")
-    print(message)
 
-    socket.send(message)
-
-    reply = socket.recv(1024)
-
-    # if (reply == ""):
-    #     print("Failed to authenticate. Exiting.")
-    #     exit()
-
+    send_data(socket, message)
+    send_data(socket, b'just a test')
 
 # ---------------------------------------------------------------
 # Script input arguments section
@@ -125,6 +150,8 @@ client_socket = socket(AF_INET, SOCK_STREAM)
 client_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
 client_socket.connect((args.address, args.port))
 
+print("Connected to: ", args.address, ":", args.port)
+
 # ---------------------------------------------------------------
 # Tk GUI Section
 # ---------------------------------------------------------------
@@ -148,7 +175,8 @@ txtYourMessage.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
 def sendMessage(event=None):                                                    
     clientMessage = txtYourMessage.get()                                        #pull message in chat box
     txtMessages.insert(END, "\n" + "Client " + args.user + ": "+ clientMessage) 
-    client_socket.send(clientMessage)
+    # client_socket.send(clientMessage)
+    send_data(client_socket, clientMessage.encode("utf-8"))
     txtYourMessage.delete(0, END)                                               #clear message box
 
 btnSendMessage = Button(window, text="Send", width=20, command=sendMessage)     #Creating send button
