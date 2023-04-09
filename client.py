@@ -4,114 +4,56 @@ from tkinter import *
 import argparse
 import os 
 import sys 
-import json 
-import Crypto
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import AES, PKCS1_OAEP
-from Crypto.Hash import SHA256
-from Crypto.Util.Padding import pad, unpad
+from cyptography_lib import *
+from sockets_lib import *
 import random
 import base64
-
-# ---------------------------------------------------------------
-# Function definitons for encryption
-# ---------------------------------------------------------------
-
-# Encrypt using RSA key
-def RSA_encrypt(message, key): 
-    cipher = PKCS1_OAEP.new(key)
-    return cipher.encrypt(message.encode('utf-8'))
-
-# Decrypt using RSA key
-def RSA_decrypt(message, key): 
-    cipher = PKCS1_OAEP.new(key)
-    return cipher.decrypt(message).decode('utf-8')
-
-# Encrypt using AES key
-def AES_encrypt(message, key): 
-    padded_message = pad(message, AES.block_size) 
-    cipher = AES.new(key, AES.MODE_ECB) 
-    return cipher.encrypt(padded_message) 
-
-# Decrypt text using an AES key
-def AES_decrypt(message, key): 
-    cipher = AES.new(key, AES.MODE_ECB) 
-    padded_message = cipher.decrypt(message) 
-    return unpad(padded_message, AES.block_size)
-
-# Used to ge the hash of a message
-def hash(message): 
-    return SHA256.new(data=message).hexdigest()
-
-# Used to load in public RSA PEM key from file
-def load_pubkey(key_path):
-    with open(key_path, 'r') as p:
-        return RSA.import_key(p.read())
-
-# Used to load in private RSA PEM key from file
-def load_privkey(key_path):
-    with open(key_path, 'r') as p:
-        return RSA.import_key(p.read())
-
-def load_cert_file(cert_path):
-    cert_file = open(cert_path, "rb").read()
-    cert_name, pubkey_b64, keyhash_b64 = cert_file.split(b',')
-    pubkey = RSA.import_key(base64.b64decode(pubkey_b64))
-    keyhash = base64.b64decode(keyhash_b64)
-    cert = {"name": cert_name, "pubkey": pubkey, "cert": cert_file}
-    return cert
 
 # ---------------------------------------------------------------
 # Function definitons for sockets and handshakes
 # ---------------------------------------------------------------
 
-# Used to receive all data from socket; combines all data received until '|' delimiter in base64 encoding
-def receive_data(socket):
-    # Byte array buffer 
-    data_buffer = bytearray()
-    # Always running in thread
-    while b'|' not in data_buffer:
-        # Wait for data to be received from socket connection and add onto buffer
-        try:
-            data = socket.recv(1024)
-            if not data:
-                return 0
-            data_buffer.extend(data)
-        except OSError as e:
-            print(e)
-            return 0
-    if not data_buffer:
-        return 0
-    data_out = data_buffer.split(b'|')[0]
-    return base64.b64decode(data_out)
-
-# Encodes data (in byte array format) to base64 format and delimits using '|' character. Sends to socket
-def send_data(socket, data):
-    # Byte array buffer
-    data_out = bytearray()
-    # Encode data to Base64 and add to buffer
-    data_out.extend(base64.b64encode(data))
-    # Add delimiter character to signify end of stream message
-    data_out.extend(b'|')
-    # Sned data out
-    socket.send(data_out)
-
-
 # Method used to perform handshake with server
-def client_auth(socket, certificate, random_int, server_pubkey, client_privkey):
+def client_auth(socket, client_cert: Cert, server_pubkey: rsa.RSAPublicKey, random_int: int, client_privkey: rsa.RSAPrivateKey):
 
+    # First part of client authentication:
+    # Sending client certificate, random number as a challenge as well as signature to confirm authenticity
+    # First part of message: client certificate
+    random_int_content = RSA_encrypt(str(random_int).encode("utf-8"), server_pubkey)
     message = bytearray()
-    message.extend(base64.b64encode(certificate))
+    message.extend(
+        base64.b64encode(
+            client_cert.to_bytes()
+        )
+    )
+    # Message delimiter
     message.extend(b',')
-    message.extend(base64.b64encode(RSA_encrypt(str(random_int), server_pubkey)))
+    # Second part of message: Random number encrypted
+    message.extend(
+        base64.b64encode(
+            random_int_content
+        )
+    )
+    # Message delimiter
     message.extend(b',')
-    message.extend(base64.b64encode(RSA_encrypt( hash(RSA_encrypt(str(random_int), server_pubkey)), client_privkey )))
-    message.extend(b'|')
-
+    # Final part of message: Random number signed using private key
+    message.extend(
+        base64.b64encode(
+            client_privkey.sign(
+                random_int_content,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+        )
+    )
     print("Attempting to authenticate...")
-
     send_data(socket, message)
-    send_data(socket, b'just a test')
+
+    # Second part of client authentication:
+    # Waiting for challenge response from server
 
 # ---------------------------------------------------------------
 # Script input arguments section
@@ -134,13 +76,15 @@ args = parser.parse_args()
 # ---------------------------------------------------------------
 
 # Get client cert, public and private keys
-client_cert = load_cert_file("certs/cert_" + args.user)
-client_pubkey = client_cert["pubkey"]
-client_privkey = load_privkey("keys/privkey_" + args.user + ".pem")
+client_cert = Cert()
+client_cert.from_bytes( open("certs/" + args.user + ".cert", 'rb').read() )
+client_pubkey = client_cert.pubkey
+client_privkey = load_privkey("keys/" + args.user)
 
 # Get server cert and public keys
-server_cert = load_cert_file("certs/cert_S")
-server_pubkey = server_cert["pubkey"]
+server_cert = Cert()
+server_cert.from_bytes( open("certs/S.cert", 'rb').read() )
+server_pubkey = server_cert.pubkey
 
 # ---------------------------------------------------------------
 # Socket connections section
@@ -184,12 +128,12 @@ btnSendMessage.grid(row=2, column=0, padx=10, pady=10, sticky="e")
 
 txtYourMessage.bind('<Return>', sendMessage)                                    #Send message if return key is pressed
     
-client_auth(client_socket, client_cert["cert"], random.randint(1, 1023), server_pubkey, client_privkey)
+client_auth(client_socket, client_cert, server_pubkey, random.randint(1, 1023), client_privkey)
 
 def recvMessage():                                                              #When mesage is received 
     while True:
         serverMessage = client_socket.recv(1024).decode("utf-8")
-        print(serverMessage)                                                    #Print message in console
+        # print(serverMessage)                                                    #Print message in console
         txtMessages.insert(END, "\n"+serverMessage)                             #
 
 recvThread = Thread(target=recvMessage)

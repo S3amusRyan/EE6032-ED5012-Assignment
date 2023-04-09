@@ -1,41 +1,29 @@
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cyptography_lib import *
 import argparse
-import Crypto
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import AES, PKCS1_OAEP
-from Crypto.Hash import SHA256
-import base64
-
-# Encrypt using RSA key
-def RSA_encrypt(message, key): 
-    cipher = PKCS1_OAEP.new(key)
-    return cipher.encrypt(message.encode('utf-8'))
 
 # Argument Parser and defining arguments
 parser = argparse.ArgumentParser(
-                    prog = 'EE6032 Custom Certificate Creator',
-                    description = 'Creates certificates for project using public key inputs')
+                    prog = 'EE6032 Cert Generator',
+                    description = 'EE6032 Project Client')
 
 # Server address, default is localhost
-parser.add_argument('-i', '--keyin', required=True, type=str)
-parser.add_argument('-p', '--certprivkey', required=True, type=str)
-parser.add_argument('-u', '--user', required=True, type=str)
-parser.add_argument('-o', '--certout', required=True, type=str)
+parser.add_argument('-k', '--issuerkey', type=str, required=True)
+parser.add_argument('-i', '--pubkey', type=str, required=True)
+parser.add_argument('-u', '--userid', type=str, required=True)
+parser.add_argument('-o', '--out', type=str)
 
 args = parser.parse_args()
 
-# Used to load in public RSA PEM key from file
-pubkey = RSA.import_key(open(args.keyin, 'r').read())
-cert_privkey = RSA.import_key(open(args.certprivkey, 'r').read())
+subject_pubkey = load_pubkey(args.pubkey)
 
-# Generate certificate
-client_cert = bytearray()
-client_cert.extend((args.user + ",").encode())
-client_cert.extend(base64.b64encode(pubkey.export_key('PEM')))
-client_cert.extend(b",")
-client_cert.extend(base64.b64encode(RSA_encrypt(SHA256.new(data=client_cert).hexdigest(), cert_privkey)))
+ca_privkey = load_privkey(args.issuerkey)
 
-# Write the cert out to file
-out_file = open(args.certout, 'wb')
-# out_file.write(base64.b64encode((client_cert)))
-out_file.write(client_cert)
-out_file.close()
+cert = Cert()
+cert.userid = args.userid
+cert.pubkey = subject_pubkey
+cert.sign_cert(ca_privkey)
+
+open(args.out, 'wb').write(cert.to_bytes())
