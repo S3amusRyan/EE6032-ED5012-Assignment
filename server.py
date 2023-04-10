@@ -12,7 +12,7 @@ ca_public_key = load_public_key("keys/PUBCERT.pub")
 def client_thread(client: ConnectedEntity):
     # Start an infinite loop to receive and send messages to client
     while True:
-        break
+        continue
     # if clients_authenticated:
     # Receive message from client
     # data = client.receive_bytes()
@@ -29,7 +29,6 @@ def client_thread(client: ConnectedEntity):
     #     if client is not client_socket:
     #         client.send((client_address[0] + ":" + str(client_address[1]) + " says: " + message).encode("utf-8"))
 
-    print("finito")
     client.socket.close()
 
 
@@ -56,20 +55,20 @@ clients = {
 }
 
 # Create a socket object for the server
-hostSocket = socket(AF_INET, SOCK_STREAM)
-hostSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+host_socket = socket(AF_INET, SOCK_STREAM)
+host_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
 
 # Set IP address and port number for server socket
-hostSocket.bind((args.address, args.port))
+host_socket.bind((args.address, args.port))
 
 # Listen for incoming connections
-hostSocket.listen()
+host_socket.listen()
 print("Waiting for connections...")
 
 # Start an infinite loop to accept incoming connections and create threads for each one
 while True:
     # Accept incoming connection and get client socket and address
-    client_socket, client_address = hostSocket.accept()
+    client_socket, client_address = host_socket.accept()
     print("Connection established with: ", client_address[0] + ":" + str(client_address[1]))
 
     new_client = ConnectedEntity(client_socket, client_address[0], client_address[1])
@@ -77,8 +76,10 @@ while True:
         new_client.authenticate_client(random.randint(0, 1023), server_private_key)
     except Exception as e:
         print(e)
+        new_client.socket.shutdown(SHUT_RDWR)
         new_client.socket.close()
-        break
+        continue
+    print("Client", new_client.cert.userid, "has been authenticated :)")
 
     if clients[new_client.cert.userid] is not None:
         clients[new_client.cert.userid] = new_client

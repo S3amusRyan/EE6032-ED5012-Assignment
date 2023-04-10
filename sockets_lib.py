@@ -11,6 +11,7 @@ class ConnectedEntity:
     address: str
     port: int
     authenticated: bool
+    byte_buffer: bytearray
 
     def __init__(self, entity_socket: socket, entity_address, entity_port, cert: Cert = None):
         if cert is not None:
@@ -18,6 +19,7 @@ class ConnectedEntity:
         self.socket = entity_socket
         self.address = entity_address
         self.port = entity_port
+        self.byte_buffer = bytearray()
 
     # Encodes data (in byte array format) to base64 format and delimits using '|' character. Sends to socket
     def send_bytes(self, data_bytes: bytes | bytearray):
@@ -32,22 +34,13 @@ class ConnectedEntity:
 
     # Used to receive all data from socket; combines all data received until '|' delimiter in base64 encoding
     def receive_bytes(self):
-        # Byte array buffer
-        data_buffer = bytearray()
         # Always running in thread
-        while b'|' not in data_buffer:
+        while b'|' not in self.byte_buffer:
             # Wait for data to be received from socket connection and add onto buffer
-            try:
-                data = self.socket.recv(1024)
-                if not data:
-                    return 0
-                data_buffer.extend(data)
-            except OSError as e:
-                print(e)
-                return 0
-        if not data_buffer:
-            return 0
-        data_out = data_buffer.split(b'|')[0]
+            data = self.socket.recv(1024)
+            self.byte_buffer.extend(data)
+
+        data_out, self.byte_buffer = self.byte_buffer.split(b'|', maxsplit=1)
         return bytes(base64.b64decode(data_out))
 
     def send_cert(self, cert: Cert):
@@ -59,11 +52,11 @@ class ConnectedEntity:
 
     def receive_cert(self):
         cert_bytes = self.receive_bytes()
-        self.cert = Cert()
-        self.cert.from_bytes(
+        cert = Cert()
+        cert.from_bytes(
             base64.b64decode(cert_bytes)
         )
-        return self.cert
+        return cert
 
     def send_challenge_response(self, signer_private_key: rsa.RSAPrivateKey, challenge: int):
         challenge_cipher = rsa_encrypt(str(challenge).encode("utf-8"), self.cert.pubkey)
@@ -117,10 +110,10 @@ class ConnectedEntity:
         # Check that the response matches to challenge
         if challenge_response != challenge:
             raise Exception("Challenge response incorrect from server!")
-        print("Challenge response passed. :)")
+        # print("Challenge response passed. :)")
         if not self.cert.verify_signature(response_cipher, signature):
             raise Exception("Server signature verification failed!")
-        print("Signature verification passed. :)")
+        # print("Signature verification passed. :)")
 
         (response_bytes, response_cipher, signature) = self.receive_challenge_response(client_private_key)
         # Decode challenge response back to integer type
@@ -138,7 +131,7 @@ class ConnectedEntity:
         # Verify the sender's signature
         if not self.cert.verify_signature(challenge_cipher, signature):
             raise Exception("Client signature verification failed!")
-        print("Signature verification passed. :)")
+        # print("Signature verification passed. :)")
 
         # Send challenge response
         self.send_challenge_response(server_private_key, challenge_response)
@@ -154,6 +147,4 @@ class ConnectedEntity:
         # Check that the response matches to challenge
         if challenge_response != challenge:
             raise Exception("Challenge response incorrect from client!")
-        print("Challenge response passed. :)")
-
-
+        # print("Challenge response passed. :)")
