@@ -120,10 +120,13 @@ class ConnectedEntity:
         challenge_response = int(response_bytes.decode("utf-8"))
         # Send challenge response
         self.send_challenge_response(client_private_key, challenge_response)
+        self.authenticated = True
 
-    def authenticate_client(self, challenge: int, server_private_key: rsa.RSAPrivateKey):
+    def authenticate_client(self, challenge: int, server_private_key: rsa.RSAPrivateKey, ca_public_key: rsa.RSAPublicKey):
         # Receive certificate from client
         self.cert = self.receive_cert()
+        if not self.cert.authenticate_cert(ca_public_key):
+            raise Exception("Cannot authenticate client certificate")
         # Receive challenge from client
         (challenge_bytes, challenge_cipher, signature) = self.receive_challenge_response(server_private_key)
         # Decode actual challenge
@@ -148,3 +151,4 @@ class ConnectedEntity:
         if challenge_response != challenge:
             raise Exception("Challenge response incorrect from client!")
         # print("Challenge response passed. :)")
+        self.authenticated = True

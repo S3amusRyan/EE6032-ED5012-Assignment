@@ -73,7 +73,7 @@ while True:
 
     new_client = ConnectedEntity(client_socket, client_address[0], client_address[1])
     try:
-        new_client.authenticate_client(random.randint(0, 1023), server_private_key)
+        new_client.authenticate_client(random.randint(0, 1023), server_private_key, ca_public_key)
     except Exception as e:
         print(e)
         new_client.socket.shutdown(SHUT_RDWR)
@@ -84,5 +84,12 @@ while True:
     if clients[new_client.cert.userid] is not None:
         clients[new_client.cert.userid] = new_client
 
+    # TODO: Only start threads once all three are connected and authenticated
+    # TODO: Remove from client array if disconnected before key exchange
+
+    # TODO: MIGHT NOT NEED MULTITHREADING, SINGLE THREAD CAN DO FINE
+
+    # TODO: AES Key negotiation
+    # TODO: AES Message send and receive
     thread = Thread(target=client_thread, args=(new_client,))
     thread.start()
