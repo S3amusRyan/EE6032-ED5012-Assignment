@@ -43,6 +43,7 @@ class ConnectedEntity:
         data_out, self.byte_buffer = self.byte_buffer.split(b'|', maxsplit=1)
         return bytes(base64.b64decode(data_out))
 
+    # Send certificate over socket
     def send_cert(self, cert: Cert):
         self.send_bytes(
             base64.b64encode(

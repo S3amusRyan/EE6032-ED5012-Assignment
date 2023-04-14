@@ -1,7 +1,8 @@
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives import serialization
+import os
+
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from dataclasses import dataclass
 from cryptography.exceptions import *
 import base64
@@ -35,18 +36,15 @@ def rsa_decrypt(message, key):
     )
 
 
-# # Encrypt using AES key
-# def aes_encrypt(message, key):
-#     padded_message = pad(message, AES.block_size)
-#     cipher = AES.new(key, AES.MODE_ECB)
-#     return cipher.encrypt(padded_message)
-#
-#
-# # Decrypt text using an AES key
-# def aes_decrypt(message, key):
-#     cipher = AES.new(key, AES.MODE_ECB)
-#     padded_message = cipher.decrypt(message)
-#     return unpad(padded_message, AES.block_size)
+# Encrypt using AES key
+def aes_encrypt(message: bytes | bytearray, key: bytes | bytearray):
+    iv = os.urandom(16)
+    cipher = Cipher(algorithms.AES(key), )
+
+
+# Decrypt text using an AES key
+def aes_decrypt(message, key):
+
 
 
 # Used to get the hash of a message
