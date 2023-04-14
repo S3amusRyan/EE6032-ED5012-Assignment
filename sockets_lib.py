@@ -1,4 +1,5 @@
 import socket
+import random
 from socket import *
 
 from cryptography_lib import *
@@ -12,6 +13,8 @@ class ConnectedEntity:
     port: int
     authenticated: bool
     byte_buffer: bytearray
+    rand_nums: int
+    mut_key: bytes
 
     def __init__(self, entity_socket: socket, entity_address, entity_port, cert: Cert = None):
         if cert is not None:
@@ -20,6 +23,7 @@ class ConnectedEntity:
         self.address = entity_address
         self.port = entity_port
         self.byte_buffer = bytearray()
+        self.rand_nums = random.randint(0, 1023)
 
     # Encodes data (in byte array format) to base64 format and delimits using '|' character. Sends to socket
     def send_bytes(self, data_bytes: bytes | bytearray):
@@ -153,3 +157,79 @@ class ConnectedEntity:
             raise Exception("Challenge response incorrect from client!")
         # print("Challenge response passed. :)")
         self.authenticated = True
+
+    def key_send(self, dest, N_inst: int, K_dest: rsa.RSAPublicKey, priv_key_src: rsa.RSAPrivateKey):
+        content = rsa_encrypt(str(N_inst).encode('utf-8'), K_dest)
+        message = bytearray()
+
+        # Append the user ID to the message as a Base64-encoded string
+        message.extend(
+            base64.b64encode(
+                self.cert.userid.encode('utf-8')
+            )
+        )
+        # Message delimiter
+        message.extend(b',')
+
+        # Append the destination identifier to the message as a Base64-encoded string
+        message.extend(
+            base64.b64encode(
+                dest.encode('utf-8')
+            )
+        )
+        # Message delimiter
+        message.extend(b',')
+
+        # Append stored encryted N_inst to the message as a Base64-encoded string
+        message.extend(
+            base64.b64encode(
+                content
+            )
+        )
+        # Message delimiter
+        message.extend(b',')
+
+        message.extend(
+            base64.b64encode(
+                    priv_key_src.sign(
+                    content,
+                    padding.PSS(
+                        mgf=padding.MGF1(hashes.SHA256()),
+                        salt_length=padding.PSS.MAX_LENGTH
+                    ),
+                    hashes.SHA256()
+                )
+            )
+        )
+
+        # Send message
+        self.send_bytes(message)
+
+    def key_recieve(self, priv_key_client):
+        # Pull all data from socket
+        data = self.receive_bytes()
+        message_data = data.split(b',')
+
+        # Decode
+        for i in message_data:
+            i = base64.b64decode(i)
+
+        # Ensure client is intended destination
+        if (message_data[1] != self.cert.userid):
+            exit()
+
+        sender_cert = Cert()
+        sender_cert.from_bytes(open("certs/" + message_data[0].decode('utf-8') + ".cert", 'rb').read())
+        
+        # Check if message is authentic
+        if not sender_cert.verify_signature(message_data[2], message_data[3]):
+            raise Exception("Invalid message!")
+
+        # Decrypt and get value of random number
+        num = rsa_decrypt(message_data[2],priv_key_client)
+        
+        # Perfom bitwise OR to join new random number to variable
+        self.rand_nums = self.rand_nums | num
+
+        
+        

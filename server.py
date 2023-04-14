@@ -65,8 +65,8 @@ host_socket.bind((args.address, args.port))
 host_socket.listen()
 print("Waiting for connections...")
 
-# Start an infinite loop to accept incoming connections and create threads for each one
-while True:
+# Start a loop to accept incoming connections and create threads for each one
+while None in clients.values():
     # Accept incoming connection and get client socket and address
     client_socket, client_address = host_socket.accept()
     print("Connection established with: ", client_address[0] + ":" + str(client_address[1]))
@@ -81,15 +81,32 @@ while True:
         continue
     print("Client", new_client.cert.userid, "has been authenticated :)")
 
-    if clients[new_client.cert.userid] is not None:
+    if clients[new_client.cert.userid] is None:
         clients[new_client.cert.userid] = new_client
+        # print("Starting client threads")
+        # thread = Thread(target=client_thread, args=(new_client,))
+        # thread.start()
 
-    # TODO: Only start threads once all three are connected and authenticated
-    # TODO: Remove from client array if disconnected before key exchange
+print("All clients added")
 
-    # TODO: MIGHT NOT NEED MULTITHREADING, SINGLE THREAD CAN DO FINE
+for i in range(2):
+    for j in clients:
+        data = clients[j].receive_bytes()
+        print("Server Recieved")
+        for k in clients:
+            clients[k].send_bytes(data)
+            print("Server Sent")
 
-    # TODO: AES Key negotiation
-    # TODO: AES Message send and receive
-    thread = Thread(target=client_thread, args=(new_client,))
-    thread.start()
+
+while True:
+    continue
+#     print("Starting client threads")
+#     # TODO: Only start threads once all three are connected and authenticated
+#     # TODO: Remove from client array if disconnected before key exchange
+
+#     # TODO: MIGHT NOT NEED MULTITHREADING, SINGLE THREAD CAN DO FINE
+
+#     # TODO: AES Key negotiation
+#     # TODO: AES Message send and receive
+#     thread = Thread(target=client_thread, args=(new_client,))
+#     thread.start()
