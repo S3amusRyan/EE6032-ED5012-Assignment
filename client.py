@@ -1,6 +1,7 @@
 import argparse
 import random
 import sys
+import threading
 from threading import *
 from tkinter import *
 import time
@@ -48,7 +49,7 @@ print("Connected to: ", args.address, ":", args.port)
 
 server = ConnectedEntity(server_socket, args.address, args.port, server_cert)
 try:
-    server.authenticate_server(client_cert, random.randint(1, 1023), client_private_key)
+    server.authenticate_server(client_cert, int.from_bytes(os.urandom(32), 'little'), client_private_key)
 except Exception as e:
     print(e)
     print("test")
@@ -58,22 +59,22 @@ except Exception as e:
 # ---------------------------------------------------------------
 # Mutual Key Agreement Section
 # ---------------------------------------------------------------
-for i in {'A','B','C'}:
+for i in {'A', 'B', 'C'}:
     if client_cert.userid != i:
         dest_cert = Cert()
         dest_cert.from_bytes(open("certs/" + i + ".cert", 'rb').read())
-        server.key_send(client_cert.userid, i, server.rand_nums, dest_cert.pubkey, client_private_key)
+        server.send_key(client_cert.userid, i, server.rand_nums, dest_cert.pubkey, client_private_key)
         print("Sent private number to ", i)
 
 for i in range(6):
     # print("waiting")
-    server.key_recieve(client_private_key, client_cert.userid)
+    server.receive_key(client_private_key, client_cert.userid)
     # print("Client Recieved")
 
 print("Rand NUMS: ", server.rand_nums)
 # Establish mutually agreed key
-Kabc = sha256_hash(str(server.rand_nums))
-print("Mutual Key: " + str(Kabc))
+server.mut_key = sha256_hash(str(server.rand_nums))
+print("Mutual Key: " + str(server.mut_key))
 # ---------------------------------------------------------------
 # Tk GUI Section
 # ---------------------------------------------------------------
@@ -96,11 +97,11 @@ txt_your_message.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
 
 # when send button is pressed: pull message from chat box, clear chat box, 
 def send_message(event=None):
-
-    client_message = txt_your_message.get()  # pull message in chat box
-    client_message = aes_encrypt(client_message, Kabc)
-    # txt_messages.insert(END, "\n" + "Client " + args.user + ": " + client_message)
-    server.send_bytes(client_message)
+    client_message = bytearray()
+    client_prefix = "Client " + client_cert.userid + ": "
+    client_message.extend(client_prefix.encode('utf-8'))
+    client_message.extend(txt_your_message.get().encode('utf-8'))  # pull message in chat box
+    server.send_message(client_message)
     # server_socket.send(client_message.encode('utf-8'))
     # send_data(client_socket, client_message.encode("utf-8"))
     txt_your_message.delete(0, END)  # clear message box
@@ -112,14 +113,15 @@ btn_send_message.grid(row=2, column=0, padx=10, pady=10, sticky="e")
 txt_your_message.bind('<Return>', send_message)  # Send message if return key is pressed
 
 
-while True:
-    # server_message = server_socket.recv(1024).decode("utf-8")
-    server_message = server.receive_bytes()
-    print(server_message)                                                    #Print message in console
-    txt_messages.insert(END, "\n" + server_message)  #
+def receive_message_thread():
+    while True:
+        # server_message = server_socket.recv(1024).decode("utf-8")
+        server_message = server.receive_message().decode('utf-8')
+        print(server_message)
+        txt_messages.insert(END, "\n" + server_message)
+
+
+message_thread = threading.Thread(target=receive_message_thread)
+message_thread.start()
 
 window.mainloop()
-
-# ---------------------------------------------------------------
-# Main method section
-# ---------------------------------------------------------------

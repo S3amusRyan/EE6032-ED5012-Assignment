@@ -1,13 +1,13 @@
 import argparse
+import os
 import random
-from threading import *
+import threading
 
 from sockets_lib import *
 
 server_cert = Cert().from_bytes(open("certs/S.cert", 'rb').read())
 server_private_key = load_private_key("keys/S")
 ca_public_key = load_public_key("keys/PUBCERT.pub")
-
 
 # ---------------------------------------------------------------
 # Script input arguments section
@@ -50,7 +50,7 @@ while None in clients.values():
 
     new_client = ConnectedEntity(client_socket, client_address[0], client_address[1])
     try:
-        new_client.authenticate_client(random.randint(0, 1023), server_private_key, ca_public_key)
+        new_client.authenticate_client(int.from_bytes(os.urandom(32), 'big'), server_private_key, ca_public_key)
     except Exception as e:
         print(e)
         new_client.socket.shutdown(SHUT_RDWR)
@@ -60,9 +60,6 @@ while None in clients.values():
 
     if clients[new_client.cert.userid] is None:
         clients[new_client.cert.userid] = new_client
-        # print("Starting client threads")
-        # thread = Thread(target=client_thread, args=(new_client,))
-        # thread.start()
 
 print("All clients added")
 
@@ -73,16 +70,15 @@ for i in range(2):
             clients[k].send_bytes(data)
 
 
+def client_thread(client: ConnectedEntity, all_clients):
+    while True:
+        message = client.receive_bytes()
+        for out_client in all_clients:
+            out_client.send_bytes(message)
+
+
+for client in clients:
+    threading.Thread(target=client_thread, args=(clients[client], clients.values())).start()
+
 while True:
-    
     continue
-#     print("Starting client threads")
-#     # TODO: Only start threads once all three are connected and authenticated
-#     # TODO: Remove from client array if disconnected before key exchange
-
-#     # TODO: MIGHT NOT NEED MULTITHREADING, SINGLE THREAD CAN DO FINE
-
-#     # TODO: AES Key negotiation
-#     # TODO: AES Message send and receive
-#     thread = Thread(target=client_thread, args=(new_client,))
-#     thread.start()

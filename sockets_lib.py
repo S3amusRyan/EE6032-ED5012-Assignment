@@ -1,5 +1,4 @@
 import socket
-import random
 from socket import *
 
 from cryptography_lib import *
@@ -23,7 +22,7 @@ class ConnectedEntity:
         self.address = entity_address
         self.port = entity_port
         self.byte_buffer = bytearray()
-        self.rand_nums = random.randint(0, 1023)
+        self.rand_nums = int.from_bytes(os.urandom(32), 'big')
 
     # Encodes data (in byte array format) to base64 format and delimits using '|' character. Sends to socket
     def send_bytes(self, data_bytes: bytes | bytearray):
@@ -126,7 +125,8 @@ class ConnectedEntity:
         self.send_challenge_response(client_private_key, challenge_response)
         self.authenticated = True
 
-    def authenticate_client(self, challenge: int, server_private_key: rsa.RSAPrivateKey, ca_public_key: rsa.RSAPublicKey):
+    def authenticate_client(self, challenge: int, server_private_key: rsa.RSAPrivateKey,
+                            ca_public_key: rsa.RSAPublicKey):
         # Receive certificate from client
         self.cert = self.receive_cert()
         if not self.cert.authenticate_cert(ca_public_key):
@@ -157,8 +157,8 @@ class ConnectedEntity:
         # print("Challenge response passed. :)")
         self.authenticated = True
 
-    def key_send(self, src_id, dest_id, N_inst: int, K_dest: rsa.RSAPublicKey, priv_key_src: rsa.RSAPrivateKey):
-        content = rsa_encrypt(str(N_inst).encode('utf-8'), K_dest)
+    def send_key(self, src_id, dest_id, random_num: int, receiver_public_key: rsa.RSAPublicKey, signer_private_key: rsa.RSAPrivateKey):
+        content = rsa_encrypt(str(random_num).encode('utf-8'), receiver_public_key)
         message = bytearray()
 
         # Append the user ID to the message as a Base64-encoded string
@@ -179,7 +179,7 @@ class ConnectedEntity:
         # Message delimiter
         message.extend(b',')
 
-        # Append stored encryted N_inst to the message as a Base64-encoded string
+        # Append stored encrypted N_inst to the message as a Base64-encoded string
         message.extend(
             base64.b64encode(
                 content
@@ -191,7 +191,7 @@ class ConnectedEntity:
 
         message.extend(
             base64.b64encode(
-                    priv_key_src.sign(
+                signer_private_key.sign(
                     content,
                     padding.PSS(
                         mgf=padding.MGF1(hashes.SHA256()),
@@ -201,7 +201,7 @@ class ConnectedEntity:
                 )
             )
         )
-        message_data = message.split(b',')
+        # message_data = message.split(b',')
 
         # # Prints out sent items
         # for i in range(len(message_data)):
@@ -211,7 +211,7 @@ class ConnectedEntity:
         # Send message
         self.send_bytes(message)
 
-    def key_recieve(self, priv_key_client, client_id):
+    def receive_key(self, private_key_client, client_id):
         # Pull all data from socket
         data = self.receive_bytes()
         message_data = data.split(b',')
@@ -222,25 +222,48 @@ class ConnectedEntity:
             # print("REC - %i: %s" %(i, str(message_data[i])))
 
         # Ensure client is intended destination
-        print("Message destination: %s Me: %s" % (str(message_data[1].decode('utf-8')),str(client_id)))
-        if ((message_data[1].decode('utf-8') != client_id) ):
+        print("Message destination: %s Me: %s" % (str(message_data[1].decode('utf-8')), str(client_id)))
+        if message_data[1].decode('utf-8') != client_id:
             print("Not for me!")
             return
 
         sender_cert = Cert()
         sender_cert.from_bytes(open("certs/" + message_data[0].decode('utf-8') + ".cert", 'rb').read())
-        
+
         # Check if message is authentic
         if not sender_cert.verify_signature(message_data[2], message_data[3]):
             raise Exception("Invalid message!")
 
         # print("LEN: "+str(len(message_data[2])))
         # Decrypt and get value of random number
-        num = int(rsa_decrypt(message_data[2],priv_key_client))
-        print("Recieved num: ", num)
-        # Perfom bitwise OR to join new random number to variable
+        num = int(rsa_decrypt(message_data[2], private_key_client))
+        print("Received num: ", num)
+        # Perform bitwise OR to join new random number to variable
         self.rand_nums = self.rand_nums | num
-        
 
-        
-        
+    def send_message(self, data: bytes | bytearray):
+        # Message placeholder
+        message = bytearray()
+        iv = os.urandom(16)
+        message.extend(
+            base64.b64encode(
+                iv
+            )
+        )
+        message.extend(
+            b','
+        )
+        message.extend(
+            base64.b64encode(
+                aes_encrypt(data, self.mut_key, iv)
+            )
+        )
+        self.send_bytes(message)
+
+    def receive_message(self):
+        # Get message from socket
+        data = self.receive_bytes()
+        message_data = data.split(b',')
+        iv = base64.b64decode(message_data[0])
+        ciphertext = base64.b64decode(message_data[1])
+        return aes_decrypt(ciphertext, self.mut_key, iv)

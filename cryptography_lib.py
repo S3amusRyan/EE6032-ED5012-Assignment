@@ -1,6 +1,7 @@
 import os
 
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from dataclasses import dataclass
@@ -25,9 +26,9 @@ def rsa_encrypt(message, key):
 
 
 # Decrypt using RSA key
-def rsa_decrypt(message, key):
+def rsa_decrypt(ciphertext, key):
     return key.decrypt(
-        message,
+        ciphertext,
         padding.OAEP(
             mgf=padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
@@ -38,22 +39,27 @@ def rsa_decrypt(message, key):
 
 # Encrypt using AES key
 def aes_encrypt(message: bytes | bytearray, key: bytes | bytearray, iv: bytes | bytearray):
+    peadar = PKCS7(algorithms.AES.block_size).padder()
+    data = peadar.update(message) + peadar.finalize()
     # Avoid re-using same Initialization Vector (vulnerability)
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
     encryptor = cipher.encryptor()
-    ciphertext = encryptor.update(message) + encryptor.finalize()
+    ciphertext = encryptor.update(data) + encryptor.finalize()
+    return ciphertext
 
 
-
-
-# # Decrypt text using an AES key
-# def aes_decrypt(message, key):
-
+# Decrypt text using an AES key
+def aes_decrypt(ciphertext: bytes | bytearray, key: bytes | bytearray, iv: bytes | bytearray):
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+    decryptor = cipher.decryptor()
+    data = decryptor.update(ciphertext) + decryptor.finalize()
+    unpadder = PKCS7(algorithms.AES.block_size).unpadder()
+    message = unpadder.update(data) + unpadder.finalize()
+    return message
 
 
 # Used to get the hash of a message
 def sha256_hash(message):
-    # return SHA256.new(data=message).hexdigest()
     digest = hashes.Hash(hashes.SHA256())
     digest.update(message.encode('utf-8'))
     return digest.finalize()
