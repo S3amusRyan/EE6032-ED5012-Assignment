@@ -62,17 +62,18 @@ for i in {'A','B','C'}:
     if client_cert.userid != i:
         dest_cert = Cert()
         dest_cert.from_bytes(open("certs/" + i + ".cert", 'rb').read())
-        server.key_send(i, server.rand_nums, dest_cert.pubkey, client_private_key)
+        server.key_send(client_cert.userid, i, server.rand_nums, dest_cert.pubkey, client_private_key)
         print("Client Sent to ", i)
 
-for i in range(2):
+for i in range(6):
     print("waiting")
-    server.key_recieve(client_private_key)
+    server.key_recieve(client_private_key, client_cert.userid)
     print("Client Recieved")
 
+print("Rand NUMS: ", server.rand_nums)
 # Establish mutually agreed key
-Kabc = sha256_hash(server.rand_nums)
-print(Kabc)
+Kabc = sha256_hash(str(server.rand_nums))
+print("Mutual Key: " + str(Kabc))
 # ---------------------------------------------------------------
 # Tk GUI Section
 # ---------------------------------------------------------------
