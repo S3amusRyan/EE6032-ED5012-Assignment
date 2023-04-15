@@ -36,10 +36,14 @@ def rsa_decrypt(message, key):
     )
 
 
-# # Encrypt using AES key
-# def aes_encrypt(message: bytes | bytearray, key: bytes | bytearray):
-#     iv = os.urandom(16)
-#     cipher = Cipher(algorithms.AES(key), )
+# Encrypt using AES key
+def aes_encrypt(message: bytes | bytearray, key: bytes | bytearray, iv: bytes | bytearray):
+    # Avoid re-using same Initialization Vector (vulnerability)
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+    encryptor = cipher.encryptor()
+    ciphertext = encryptor.update(message) + encryptor.finalize()
+
+
 
 
 # # Decrypt text using an AES key

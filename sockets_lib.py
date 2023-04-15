@@ -222,7 +222,7 @@ class ConnectedEntity:
             # print("REC - %i: %s" %(i, str(message_data[i])))
 
         # Ensure client is intended destination
-        print("Check: %s ~ %s" % (str(message_data[1].decode('utf-8')),str(client_id)))
+        print("Message destination: %s Me: %s" % (str(message_data[1].decode('utf-8')),str(client_id)))
         if ((message_data[1].decode('utf-8') != client_id) ):
             print("Not for me!")
             return

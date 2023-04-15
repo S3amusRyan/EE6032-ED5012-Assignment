@@ -63,12 +63,12 @@ for i in {'A','B','C'}:
         dest_cert = Cert()
         dest_cert.from_bytes(open("certs/" + i + ".cert", 'rb').read())
         server.key_send(client_cert.userid, i, server.rand_nums, dest_cert.pubkey, client_private_key)
-        print("Client Sent to ", i)
+        print("Sent private number to ", i)
 
 for i in range(6):
-    print("waiting")
+    # print("waiting")
     server.key_recieve(client_private_key, client_cert.userid)
-    print("Client Recieved")
+    # print("Client Recieved")
 
 print("Rand NUMS: ", server.rand_nums)
 # Establish mutually agreed key
@@ -96,9 +96,12 @@ txt_your_message.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
 
 # when send button is pressed: pull message from chat box, clear chat box, 
 def send_message(event=None):
+
     client_message = txt_your_message.get()  # pull message in chat box
-    txt_messages.insert(END, "\n" + "Client " + args.user + ": " + client_message)
-    # client_socket.send(client_message)
+    client_message = aes_encrypt(client_message, Kabc)
+    # txt_messages.insert(END, "\n" + "Client " + args.user + ": " + client_message)
+    server.send_bytes(client_message)
+    # server_socket.send(client_message.encode('utf-8'))
     # send_data(client_socket, client_message.encode("utf-8"))
     txt_your_message.delete(0, END)  # clear message box
 
@@ -109,16 +112,11 @@ btn_send_message.grid(row=2, column=0, padx=10, pady=10, sticky="e")
 txt_your_message.bind('<Return>', send_message)  # Send message if return key is pressed
 
 
-def recv_message():  # When message is received
-    while True:
-        server_message = server_socket.recv(1024).decode("utf-8")
-        # print(server_message)                                                    #Print message in console
-        txt_messages.insert(END, "\n" + server_message)  #
-
-
-recv_thread = Thread(target=recv_message)
-recv_thread.daemon = True
-recv_thread.start()
+while True:
+    # server_message = server_socket.recv(1024).decode("utf-8")
+    server_message = server.receive_bytes()
+    print(server_message)                                                    #Print message in console
+    txt_messages.insert(END, "\n" + server_message)  #
 
 window.mainloop()
 

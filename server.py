@@ -9,29 +9,6 @@ server_private_key = load_private_key("keys/S")
 ca_public_key = load_public_key("keys/PUBCERT.pub")
 
 
-def client_thread(client: ConnectedEntity):
-    # Start an infinite loop to receive and send messages to client
-    while True:
-        continue
-    # if clients_authenticated:
-    # Receive message from client
-    # data = client.receive_bytes()
-    # if not data:
-    #     clients.remove(client)
-    #     print(client_address[0] + ":" + str(client_address[1]) + " disconnected")
-    #     break
-
-    # message = data.decode("utf-8")
-
-    # Print message and client address to server console
-    # print(client_address[0] + ":" + str(client_address[1]) + " says: " + message)
-    # for client in clients:
-    #     if client is not client_socket:
-    #         client.send((client_address[0] + ":" + str(client_address[1]) + " says: " + message).encode("utf-8"))
-
-    client.socket.close()
-
-
 # ---------------------------------------------------------------
 # Script input arguments section
 # ---------------------------------------------------------------
@@ -92,13 +69,12 @@ print("All clients added")
 for i in range(2):
     for j in clients:
         data = clients[j].receive_bytes()
-        print("Server Recieved")
         for k in clients:
             clients[k].send_bytes(data)
-            print("Server Sent")
 
 
 while True:
+    
     continue
 #     print("Starting client threads")
 #     # TODO: Only start threads once all three are connected and authenticated
