@@ -1,3 +1,17 @@
+# ---------------------------------------------------------------
+# EE6032: Communication & Security Protocols
+# Protocol Design Project
+#
+# Adam Dooley		19252056
+# Danila Fedotov	19267371
+# Ronan Randles	    19242441
+# Seamus Ryan		19254555
+#
+# Script name: server.py
+#
+# Description: Script to run which acts as the server as
+# described in the design doccument. 
+# ---------------------------------------------------------------
 import argparse
 import os
 import random
@@ -50,7 +64,7 @@ while None in clients.values():
 
     new_client = ConnectedEntity(client_socket, client_address[0], client_address[1])
     try:
-        new_client.authenticate_client(int.from_bytes(os.urandom(32), 'big'), server_private_key, ca_public_key)
+        new_client.authenticate_client(int.from_bytes(os.urandom(32), 'little'), server_private_key, ca_public_key)
     except Exception as e:
         print(e)
         new_client.socket.shutdown(SHUT_RDWR)

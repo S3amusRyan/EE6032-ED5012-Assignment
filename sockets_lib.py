@@ -1,3 +1,16 @@
+# ---------------------------------------------------------------
+# EE6032: Communication & Security Protocols
+# Protocol Design Project
+#
+# Adam Dooley		19252056
+# Danila Fedotov	19267371
+# Ronan Randles	    19242441
+# Seamus Ryan		19254555
+#
+# Script name: sockets_lib.py
+#
+# Description: Library file which cotains socket functions
+# ---------------------------------------------------------------
 import socket
 from socket import *
 
@@ -259,7 +272,7 @@ class ConnectedEntity:
             )
         )
         self.send_bytes(message)
-
+    
     def receive_message(self):
         # Get message from socket
         data = self.receive_bytes()
